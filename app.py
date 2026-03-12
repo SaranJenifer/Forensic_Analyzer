@@ -1,46 +1,196 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import base64
 
+# -----------------------------
+# PAGE SETTINGS
+# -----------------------------
+st.set_page_config(page_title="Digital Forensics Analyzer", layout="wide")
+
+# -----------------------------
+# BACKGROUND FUNCTION
+# -----------------------------
+def set_background(image_file):
+    with open(image_file, "rb") as img:
+        encoded = base64.b64encode(img.read()).decode()
+
+    page_bg = f"""
+    <style>
+
+    .stApp {{
+        background-image: url("data:image/jpg;base64,{encoded}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+
+    .stApp::before {{
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+        z-index: -1;
+    }}
+
+    [data-testid="metric-container"] {{
+        background: rgba(255,255,255,0.08);
+        border-radius: 10px;
+        padding: 10px;
+        border: 1px solid rgba(255,255,255,0.2);
+    }}
+
+    </style>
+    """
+
+    st.markdown(page_bg, unsafe_allow_html=True)
+
+
+# -----------------------------
+# APPLY BACKGROUND
+# -----------------------------
+set_background("background.jpg")
+
+# -----------------------------
+# TITLE
+# -----------------------------
 st.title("🔎 AI-Based Digital Forensics Analyzer")
 
-st.subheader("Upload Log File")
+# -----------------------------
+# UPLOAD FILE
+# -----------------------------
+st.header("Upload Log File")
 
-uploaded_file = st.file_uploader("Upload a log file", type=["csv"])
+uploaded_file = st.file_uploader(
+    "Upload CSV Log File",
+    type=["csv"],
+    key="log_uploader"
+)
 
 if uploaded_file is not None:
 
     data = pd.read_csv(uploaded_file)
 
-    st.subheader("📄 Log Data Preview")
-    st.dataframe(data)
-
     # -----------------------------
     # LOG SUMMARY
     # -----------------------------
-    st.subheader("📊 Log Summary")
+    st.header("Log Summary")
 
     total_logs = len(data)
-    unique_users = data["user"].nunique()
-    unique_ips = data["ip"].nunique()
-    failed_logins = len(data[data["action"] == "failed_login"])
+    users = data["user"].nunique()
+    ips = data["ip"].nunique()
+    failed = len(data[data["action"] == "failed_login"])
 
-    col1, col2, col3, col4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
 
-    col1.metric("Total Logs", total_logs)
-    col2.metric("Unique Users", unique_users)
-    col3.metric("Unique IPs", unique_ips)
-    col4.metric("Failed Logins", failed_logins)
+    c1.metric("Total Logs", total_logs)
+    c2.metric("Users", users)
+    c3.metric("IPs", ips)
+    c4.metric("Failed Logins", failed)
 
     # -----------------------------
-    # FILTER SECTION
+    # ACTIVITY CHART
     # -----------------------------
-    st.subheader("🔍 Filter Logs")
+    st.header("Activity Chart")
 
-    user_filter = st.selectbox("Select User", ["All"] + list(data["user"].unique()))
-    ip_filter = st.selectbox("Select IP", ["All"] + list(data["ip"].unique()))
-    action_filter = st.selectbox("Select Action", ["All"] + list(data["action"].unique()))
+    action_counts = data["action"].value_counts()
 
+    fig, ax = plt.subplots(figsize=(5,2.5))
+    ax.bar(action_counts.index, action_counts.values)
+
+    ax.set_xlabel("Action")
+    ax.set_ylabel("Count")
+    ax.set_title("User Activity Distribution")
+
+    st.pyplot(fig)
+
+    
+#brute force detection
+
+    st.header("Security Analysis")
+
+    c1, c2 = st.columns(2)
+
+    
+    st.header("🚨 Suspicious Activity Detection")
+
+    failed_counts = data[data["action"] == "failed_login"].groupby("ip").size()
+
+    suspicious_ips = failed_counts[failed_counts >= 3]
+
+    if not suspicious_ips.empty:
+        st.error("Possible Brute Force Attack Detected")
+
+        suspicious_table = suspicious_ips.reset_index()
+        suspicious_table.columns = ["IP Address", "Failed Attempts"]
+
+        st.dataframe(suspicious_table)
+
+    else:
+        st.success("No suspicious activity detected")
+
+#top suspicious IP chart
+    with c1:
+        st.subheader("Top IP Activity")
+
+        ip_counts = data["ip"].value_counts()
+
+        fig, ax = plt.subplots(figsize=(4,3))
+
+        ax.bar(ip_counts.index, ip_counts.values)
+        ax.set_xticklabels(ip_counts.index, rotation=45)
+
+        ax.set_xlabel("IP Address")
+        ax.set_ylabel("Number of Requests")
+
+        st.pyplot(fig)
+
+# activity timeline 
+    with c2:
+        st.subheader("Activity Timeline")
+
+        timeline = data.groupby("timestamp").size()
+
+        fig, ax = plt.subplots(figsize=(4,3))
+
+        ax.plot(timeline.index, timeline.values)
+
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Activity Count")
+
+        st.pyplot(fig)
+
+    # -----------------------------
+    # FILTER + TABLE SIDE BY SIDE
+    # -----------------------------
+    st.header("Logs")
+
+    left, right = st.columns([1,2])
+
+    # FILTERS
+    with left:
+
+        st.subheader("Filters")
+
+        user_filter = st.selectbox(
+            "User",
+            ["All"] + list(data["user"].unique())
+        )
+
+        ip_filter = st.selectbox(
+            "IP Address",
+            ["All"] + list(data["ip"].unique())
+        )
+
+        action_filter = st.selectbox(
+            "Action",
+            ["All"] + list(data["action"].unique())
+        )
+
+    # FILTERED LOG TABLE
     filtered_data = data.copy()
 
     if user_filter != "All":
@@ -52,35 +202,21 @@ if uploaded_file is not None:
     if action_filter != "All":
         filtered_data = filtered_data[filtered_data["action"] == action_filter]
 
-    st.subheader("Filtered Logs")
-    st.dataframe(filtered_data)
+    with right:
 
-    # -----------------------------
-    # ACTIVITY CHART
-    # -----------------------------
-    st.subheader("📈 Activity Chart")
-
-    action_counts = data["action"].value_counts()
-
-    fig, ax = plt.subplots()
-    ax.bar(action_counts.index, action_counts.values)
-    ax.set_xlabel("Action Type")
-    ax.set_ylabel("Count")
-    ax.set_title("User Activity Distribution")
-
-    st.pyplot(fig)
+        st.subheader("Filtered Logs")
+        st.dataframe(filtered_data, use_container_width=True)
 
     # -----------------------------
     # DOWNLOAD REPORT
     # -----------------------------
-    st.subheader("📥 Download Evidence Report")
+    st.header("Download Report")
 
-    csv = filtered_data.to_csv(index=False).encode('utf-8')
+    csv = filtered_data.to_csv(index=False).encode("utf-8")
 
     st.download_button(
         label="Download Filtered Logs",
         data=csv,
         file_name="forensic_report.csv",
-        mime="text/csv",
+        mime="text/csv"
     )
-

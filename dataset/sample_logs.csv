@@ -4,3 +4,10 @@ timestamp,user,ip,action
 10:10,user3,192.168.1.5,login
 10:12,user4,192.168.1.20,failed_login
 10:13,user5,192.168.1.25,logout
+10:01,user1,192.168.1.5,login
+10:05,user2,192.168.1.8,logout
+10:10,user3,192.168.1.5,login
+10:12,user4,192.168.1.20,failed_login
+10:13,user5,192.168.1.20,failed_login
+10:14,user6,192.168.1.20,failed_login
+10:15,user7,192.168.1.20,failed_login
