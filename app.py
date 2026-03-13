@@ -17,7 +17,6 @@ def set_background(image_file):
 
     page_bg = f"""
     <style>
-
     .stApp {{
         background-image: url("data:image/jpg;base64,{encoded}");
         background-size: cover;
@@ -42,7 +41,6 @@ def set_background(image_file):
         padding: 10px;
         border: 1px solid rgba(255,255,255,0.2);
     }}
-
     </style>
     """
 
@@ -60,6 +58,25 @@ set_background("background.jpg")
 st.title("🔎 AI-Based Digital Forensics Analyzer")
 
 # -----------------------------
+# SAMPLE LOG DOWNLOAD
+# -----------------------------
+st.subheader("Test the System with Sample Data")
+
+with open("dataset/sample_logs.csv", "rb") as file:
+    st.download_button(
+        label="⬇ Download Sample Log File",
+        data=file,
+        file_name="sample_logs.csv",
+        mime="text/csv"
+    )
+
+# -----------------------------
+# SAMPLE DATA BUTTON
+# -----------------------------
+if st.button("Load Sample Logs"):
+    data = pd.read_csv("dataset/sample_logs.csv")
+
+# -----------------------------
 # UPLOAD FILE
 # -----------------------------
 st.header("Upload Log File")
@@ -70,9 +87,14 @@ uploaded_file = st.file_uploader(
     key="log_uploader"
 )
 
+# -----------------------------
+# PROCESS DATA
+# -----------------------------
 if uploaded_file is not None:
 
     data = pd.read_csv(uploaded_file)
+
+if 'data' in locals():
 
     # -----------------------------
     # LOG SUMMARY
@@ -94,34 +116,35 @@ if uploaded_file is not None:
     # -----------------------------
     # ACTIVITY CHART
     # -----------------------------
+    
     st.header("Activity Chart")
 
-    action_counts = data["action"].value_counts()
+    col1 ,col2 ,col3 =st.columns([1,2,1])
 
-    fig, ax = plt.subplots(figsize=(5,2.5))
-    ax.bar(action_counts.index, action_counts.values)
+    with col2:
+        action_counts = data["action"].value_counts()
 
-    ax.set_xlabel("Action")
-    ax.set_ylabel("Count")
-    ax.set_title("User Activity Distribution")
+        fig, ax = plt.subplots(figsize=(3,2))
+        ax.bar(action_counts.index, action_counts.values)
 
-    st.pyplot(fig)
+        ax.set_xlabel("Action")
+        ax.set_ylabel("Count")
 
-    
-#brute force detection
+        st.pyplot(fig)
 
+    # -----------------------------
+    # SECURITY ANALYSIS
+    # -----------------------------
     st.header("Security Analysis")
 
-    c1, c2 = st.columns(2)
-
-    
-    st.header("🚨 Suspicious Activity Detection")
+    st.subheader("🚨 Suspicious Activity Detection")
 
     failed_counts = data[data["action"] == "failed_login"].groupby("ip").size()
 
     suspicious_ips = failed_counts[failed_counts >= 3]
 
     if not suspicious_ips.empty:
+
         st.error("Possible Brute Force Attack Detected")
 
         suspicious_table = suspicious_ips.reset_index()
@@ -132,8 +155,14 @@ if uploaded_file is not None:
     else:
         st.success("No suspicious activity detected")
 
-#top suspicious IP chart
+    # -----------------------------
+    # CHARTS
+    # -----------------------------
+    c1, c2 = st.columns(2)
+
+    # Top IP Activity
     with c1:
+
         st.subheader("Top IP Activity")
 
         ip_counts = data["ip"].value_counts()
@@ -144,12 +173,13 @@ if uploaded_file is not None:
         ax.set_xticklabels(ip_counts.index, rotation=45)
 
         ax.set_xlabel("IP Address")
-        ax.set_ylabel("Number of Requests")
+        ax.set_ylabel("Requests")
 
         st.pyplot(fig)
 
-# activity timeline 
+    # Activity Timeline
     with c2:
+
         st.subheader("Activity Timeline")
 
         timeline = data.groupby("timestamp").size()
@@ -164,7 +194,7 @@ if uploaded_file is not None:
         st.pyplot(fig)
 
     # -----------------------------
-    # FILTER + TABLE SIDE BY SIDE
+    # FILTER + TABLE
     # -----------------------------
     st.header("Logs")
 
@@ -190,7 +220,7 @@ if uploaded_file is not None:
             ["All"] + list(data["action"].unique())
         )
 
-    # FILTERED LOG TABLE
+    # FILTER DATA
     filtered_data = data.copy()
 
     if user_filter != "All":
@@ -202,6 +232,7 @@ if uploaded_file is not None:
     if action_filter != "All":
         filtered_data = filtered_data[filtered_data["action"] == action_filter]
 
+    # TABLE
     with right:
 
         st.subheader("Filtered Logs")
